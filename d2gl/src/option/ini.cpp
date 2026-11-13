@@ -88,6 +88,15 @@ std::string getString(LPCSTR section, LPCSTR key, const std::string& def)
 
 bool saveValue(LPCSTR section, LPCSTR key, LPCSTR value_string)
 {
+	// LATAM: WritePrivateProfileString rewrites the whole file even when the value
+	// is unchanged, and some callers run on every start (shader_preset in
+	// upscaler.cpp). Skip the write when the stored value already matches, so a
+	// second client starting at the same time has nothing to race against.
+	char current[512] = { 0 };
+	const DWORD length = GetPrivateProfileStringA(section, key, "\x01", current, sizeof(current), App.ini_file.c_str());
+	if (length > 0 && current[0] != '\x01' && strcmp(current, value_string) == 0)
+		return true;
+
 	return WritePrivateProfileStringA(section, key, value_string, App.ini_file.c_str()) > 0;
 }
 

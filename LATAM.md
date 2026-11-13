@@ -12,6 +12,9 @@ Changes (branch `latam/1.14d`):
    `<file>.tmp` + `MoveFileExA(MOVEFILE_REPLACE_EXISTING)`. Upstream rewrote the
    file unconditionally, so a second client starting while the first one parsed it
    could read an empty or half-written ini.
+   `saveValue()` also skips the write when the stored value already matches
+   (`WritePrivateProfileString` rewrites the whole file for an unchanged value,
+   and `upscaler.cpp` saves `shader_preset` on every start).
 2. `d2gl/src/modules/hd_text/variables.h` — the Spanish death-screen texts follow
    the retail Spanish art ("Has muerto", "Pulsa ESC para continuar", "Has perdido
    oro"). Upstream had a German sentence on the first line.
