@@ -241,27 +241,90 @@ void Wrapper::grTexDownloadTable(void* data)
 
 FxBool Wrapper::grLfbLock(GrLfbWriteMode_t write_mode, GrOriginLocation_t origin, GrLfbInfo_t* info)
 {
-	if (write_mode == GR_LFBWRITEMODE_8888 && origin == GR_ORIGIN_UPPER_LEFT && info) {
-		if (!m_movie_buffer.lfbPtr) {
-			m_movie_buffer.lfbPtr = malloc(640 * 480 * 4);
-			m_movie_buffer.strideInBytes = 640 * 4;
-			m_movie_buffer.writeMode = write_mode;
-			m_movie_buffer.origin = origin;
-			if (m_movie_buffer.lfbPtr)
-				memset(m_movie_buffer.lfbPtr, 0, 640 * 480 * 4);
-		}
-		*info = m_movie_buffer;
+	// LATAM: respect the format the caller asks for instead of accepting only 8888.
+	// The lobby banner (and the SMK movies that go through the LFB) ask for other
+	// write modes; returning FXFALSE for them left the banner blank/corrupt. The
+	// bytes are converted to BGRA in grLfbUnlock(), which is what the movie texture
+	// uploads.
+	if (!info || origin != GR_ORIGIN_UPPER_LEFT)
+		return FXFALSE;
 
-		return FXTRUE;
+	uint32_t bpp = 0;
+	switch (write_mode) {
+		case GR_LFBWRITEMODE_565:
+		case GR_LFBWRITEMODE_555:
+		case GR_LFBWRITEMODE_1555: bpp = 2; break;
+		case GR_LFBWRITEMODE_888: bpp = 3; break;
+		case GR_LFBWRITEMODE_8888: bpp = 4; break;
+		default: return FXFALSE;
 	}
 
-	return FXFALSE;
+	if (!m_movie_raw) {
+		m_movie_raw = malloc(640 * 480 * 4);
+		if (m_movie_raw)
+			memset(m_movie_raw, 0, 640 * 480 * 4);
+	}
+	if (!m_movie_rgba) {
+		m_movie_rgba = malloc(640 * 480 * 4);
+		if (m_movie_rgba)
+			memset(m_movie_rgba, 0, 640 * 480 * 4);
+	}
+	if (!m_movie_raw || !m_movie_rgba)
+		return FXFALSE;
+
+	m_movie_raw_bpp = bpp;
+	m_movie_buffer.size = 640 * 480 * bpp;
+	m_movie_buffer.lfbPtr = m_movie_raw;
+	m_movie_buffer.strideInBytes = 640 * bpp;
+	m_movie_buffer.writeMode = write_mode;
+	m_movie_buffer.origin = origin;
+	*info = m_movie_buffer;
+
+	return FXTRUE;
 }
 
 FxBool Wrapper::grLfbUnlock()
 {
 	App.game.screen = GameScreen::Movie;
-	ctx->getCommandBuffer()->gameTextureUpdate((uint8_t*)m_movie_buffer.lfbPtr, { 640, 480 }, 4);
+
+	// LATAM: convert whatever the game wrote into BGRA for the movie texture.
+	auto dst = (uint8_t*)m_movie_rgba;
+	const auto src = (const uint8_t*)m_movie_raw;
+	const uint32_t pixels = 640 * 480;
+	if (dst && src) {
+		if (m_movie_raw_bpp == 4) {
+			memcpy(dst, src, pixels * 4);
+		} else if (m_movie_raw_bpp == 2) {
+			const bool mode_565 = m_movie_buffer.writeMode == GR_LFBWRITEMODE_565;
+			const bool mode_1555 = m_movie_buffer.writeMode == GR_LFBWRITEMODE_1555;
+			for (uint32_t i = 0; i < pixels; i++) {
+				const uint16_t v = ((const uint16_t*)src)[i];
+				uint8_t r, g, b;
+				if (mode_565) {
+					r = (uint8_t)(((v >> 11) & 0x1F) * 255 / 31);
+					g = (uint8_t)(((v >> 5) & 0x3F) * 255 / 63);
+					b = (uint8_t)((v & 0x1F) * 255 / 31);
+				} else {
+					r = (uint8_t)(((v >> 10) & 0x1F) * 255 / 31);
+					g = (uint8_t)(((v >> 5) & 0x1F) * 255 / 31);
+					b = (uint8_t)((v & 0x1F) * 255 / 31);
+				}
+				dst[i * 4 + 0] = b;
+				dst[i * 4 + 1] = g;
+				dst[i * 4 + 2] = r;
+				dst[i * 4 + 3] = mode_1555 ? (uint8_t)((v & 0x8000) ? 255 : 0) : 255;
+			}
+		} else {
+			for (uint32_t i = 0; i < pixels; i++) {
+				dst[i * 4 + 0] = src[i * 3 + 2];
+				dst[i * 4 + 1] = src[i * 3 + 1];
+				dst[i * 4 + 2] = src[i * 3 + 0];
+				dst[i * 4 + 3] = 255;
+			}
+		}
+	}
+
+	ctx->getCommandBuffer()->gameTextureUpdate((uint8_t*)m_movie_rgba, { 640, 480 }, 4);
 
 	onBufferClear();
 	onBufferSwap();

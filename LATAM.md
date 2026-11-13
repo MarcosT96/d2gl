@@ -31,7 +31,13 @@ Changes (branch `latam/1.14d`):
    `d2::getLangIdEffective()` (`d2/funcs.cpp`), used by `helpers.cpp` and
    `modules/hd_text.cpp`.
 
-4. `d2gl/src/helpers.cpp` — two small functions, `__std_find_trivial_4` and
+4. `glide3x/src/wrapper.cpp/.h` — `grLfbLock()` accepted only
+   `GR_LFBWRITEMODE_8888` and returned `FXFALSE` for everything else, so the lobby
+   banner (which asks for another write mode) was never drawn. It now accepts
+   565/555/1555/888/8888 for `GR_ORIGIN_UPPER_LEFT` and converts to BGRA in
+   `grLfbUnlock()`, the format the movie texture uploads. Same defect class as the
+   D2DX RGB565 banner fix (`d2dx/README.md`, 2026-10-31).
+5. `d2gl/src/helpers.cpp` — two small functions, `__std_find_trivial_4` and
    `__std_count_trivial_1`, compiled only for `_MSC_VER < 1930`. The vendored
    `glslang.lib` was built with MSVC 14.38 and its STL calls them; the v142
    (14.2x) import library does not export them, so the link fails (LNK2001).

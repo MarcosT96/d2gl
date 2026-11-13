@@ -36,6 +36,12 @@ class Wrapper {
 	bool m_swapped = true;
 	uint32_t m_gamma_hash = 0;
 	GrLfbInfo_t m_movie_buffer = { 0 };
+	// LATAM: the raw buffer handed to the game in the format it asked for, and the
+	// RGBA buffer uploaded to GL. They used to be the same 640x480x4 pointer, which
+	// only works when the game requests GR_LFBWRITEMODE_8888 (see LATAM.md).
+	void* m_movie_raw = nullptr;
+	void* m_movie_rgba = nullptr;
+	uint32_t m_movie_raw_bpp = 4;
 	std::unique_ptr<TextureManager> m_texture_manager;
 
 public:
