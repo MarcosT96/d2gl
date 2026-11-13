@@ -161,12 +161,6 @@ bool HDText::drawText(const wchar_t* str, int x, int y, uint32_t color, uint32_t
 	if (!isActive() || !str)
 		return false;
 
-	// LATAM diagnostic: the lobby greeting lands outside its panel; this logs what
-	// the client asks for so the offset can be traced. Remove once fixed.
-	if (wcsstr(str, L"Bienvenido") != nullptr) {
-		trace_log("Bienvenido: x=%d y=%d size=%d color=%u centered=%u stage=%d shift=%d game=%dx%d",
-			x, y, (int)m_text_size, color, centered, (int)App.game.draw_stage, (int)*d2::screen_shift, (int)App.game.size.x, (int)App.game.size.y);
-	}
 
 	auto font = getFont(m_text_size);
 	font->setShadow(1);
