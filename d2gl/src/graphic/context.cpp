@@ -224,8 +224,20 @@ Context::Context()
 		m_game_texture = Context::createTexture(movie_texture_ci);
 
 		UniformBufferCreateInfo game_ubo_ci;
-		game_ubo_ci.variables = { { "palette", 256 * sizeof(glm::vec4) }, { "gamma", 256 * sizeof(glm::vec4) } };
+		// LATAM: a second palette for textures whose pixels carry their own colour
+		// (RGB565). Built once as a 6x6x6 colour cube; the vertex selects it with
+		// tex_ids.y == 1 (glide.glsl). Fixes the lobby banner, see LATAM.md.
+		game_ubo_ci.variables = { { "palette", 256 * sizeof(glm::vec4) }, { "gamma", 256 * sizeof(glm::vec4) }, { "palette2", 256 * sizeof(glm::vec4) } };
 		m_game_color_ubo = Context::createUniformBuffer(game_ubo_ci);
+
+		{
+			static glm::vec4 cube[256];
+			for (int r = 0; r < 6; r++)
+				for (int g = 0; g < 6; g++)
+					for (int b = 0; b < 6; b++)
+						cube[r * 36 + g * 6 + b] = glm::vec4(r / 5.0f, g / 5.0f, b / 5.0f, 1.0f);
+			m_game_color_ubo->updateData("palette2", cube);
+		}
 
 		PipelineCreateInfo game_pipeline_ci = { "glide" };
 		game_pipeline_ci.version = { 3, 3 };

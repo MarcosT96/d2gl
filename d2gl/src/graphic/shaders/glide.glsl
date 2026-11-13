@@ -53,6 +53,7 @@ layout(location = 2) out vec4 FragColorMask;
 layout(std140) uniform ubo_Colors {
 	vec4 u_Palette[256];
 	vec4 u_Gamma[256];
+	vec4 u_Palette2[256]; // LATAM: second palette for direct-colour textures (RGB565)
 };
 
 uniform sampler2DArray u_Texture;
@@ -74,7 +75,7 @@ void main()
 		if (v_Flags.x == 1u && red == 0.0)
 			discard;
 
-		FragColor = v_Color1 * u_Palette[int(red * 255)];
+		FragColor = v_Color1 * (v_TexIds.y == 1 ? u_Palette2[int(red * 255)] : u_Palette[int(red * 255)]);
 	}
 
 	FragColor.r = u_Gamma[int(FragColor.r * 255)].r;

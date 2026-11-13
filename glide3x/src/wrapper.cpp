@@ -201,7 +201,8 @@ void Wrapper::grTexSource(GrChipID_t tmu, FxU32 start_address, GrTexInfo* info)
 	const auto frame_count = ctx->getFrameCount();
 	const auto sub_tex_info = m_texture_manager->getSubTextureInfo(start_address, size, width, height, frame_count);
 	if (sub_tex_info) {
-		ctx->setVertexTexNum({ sub_tex_info->tex_num, 0 });
+		// LATAM: tex_ids.y tells the fragment shader to use palette2.
+		ctx->setVertexTexNum({ sub_tex_info->tex_num, m_direct_color_tex.count(start_address) ? 1 : 0 });
 		ctx->setVertexOffset(sub_tex_info->offset);
 		ctx->setVertexTexShift(sub_tex_info->shift);
 	}
@@ -212,6 +213,26 @@ void Wrapper::grTexDownloadMipMap(GrChipID_t tmu, FxU32 start_address, GrTexInfo
 	uint32_t width, height;
 	uint32_t size = Wrapper::getTexSize(info, width, height);
 	start_address += GLIDE_TEX_MEMORY * tmu;
+
+	// LATAM: honour the texture format. Upstream copied width*height bytes and read
+	// them as palette indices, which is why the RGB565 lobby banner rendered as
+	// coloured noise (same defect D2DX had: d2dx/README.md, 2026-10-31). A 565
+	// texture is quantised into the 6x6x6 cube uploaded as palette2 and its draws
+	// are flagged with tex_ids.y == 1.
+	if (info->format == GR_TEXFMT_RGB_565) {
+		m_direct_color_tex[start_address] = 1;
+		const auto src = (const uint16_t*)info->data;
+		auto dst = g_glide_texture.memory + start_address;
+		for (uint32_t i = 0; i < width * height; i++) {
+			const uint16_t v = src[i];
+			const uint32_t r = ((v >> 11) & 0x1F) * 6 / 32;
+			const uint32_t g = ((v >> 5) & 0x3F) * 6 / 64;
+			const uint32_t b = (v & 0x1F) * 6 / 32;
+			dst[i] = (uint8_t)(r * 36 + g * 6 + b);
+		}
+		g_glide_texture.hash[start_address] = helpers::hash(dst, width * height);
+		return;
+	}
 
 	memcpy(g_glide_texture.memory + start_address, info->data, width * height);
 	g_glide_texture.hash[start_address] = helpers::hash(info->data, width * height);

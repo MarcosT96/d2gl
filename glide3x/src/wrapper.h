@@ -42,6 +42,8 @@ class Wrapper {
 	void* m_movie_raw = nullptr;
 	void* m_movie_rgba = nullptr;
 	uint32_t m_movie_raw_bpp = 4;
+	// LATAM: texture addresses uploaded as RGB565; their draws use palette2.
+	std::unordered_map<uint32_t, uint32_t> m_direct_color_tex;
 	std::unique_ptr<TextureManager> m_texture_manager;
 
 public:
