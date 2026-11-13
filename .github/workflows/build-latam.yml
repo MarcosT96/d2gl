@@ -1,0 +1,104 @@
+name: build-latam
+
+# In-repo copy of the build used by d2-latam-client/.github/workflows/build-d2gl.yml
+# (which checks this repository out). It builds the Glide wrapper `glide3x.dll`
+# of this fork (GPLv3) and runs on every push to latam/1.14d, so the source and
+# the proof that it compiles with v142 live together.
+#
+# NOT wired into publish.yml: nothing here ships to players yet. The ledger and
+# the open decisions (font licensing for d2gl.mpq, the in-game checklist) are in
+# d2gl/README.md. This workflow only produces an artifact to test with.
+#
+# Toolchain: the upstream release binaries are v143 (linker 14.38), and v143
+# builds of D2DX crashed the 1.14d client at startup while v142 did not
+# (d2dx/README.md). We therefore run on `windows-2022` (it still ships the v142
+# build tools) and force `/p:PlatformToolset=v142`. A guard fails the build if
+# the linker is not 14.2x. The vendored static libs in d2gl/vendor/lib were
+# built with 14.38 and use the dynamic CRT (RuntimeLibrary=MD), so the DLL needs
+# the VC++ 2015-2022 x86 redistributable, like d2fps.dll and D2DX's resolution
+# DLL already do.
+#
+# d2gl.mpq is deliberately NOT built here: its font atlases are rasterisations
+# of fonts we have no licence to redistribute (d2gl/README.md, "Licences").
+
+on:
+  push:
+    branches: [latam/1.14d]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  glide3x:
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: d2gl-src
+
+      - name: Show the source being built
+        shell: pwsh
+        run: |
+          $sha = (git -C d2gl-src rev-parse HEAD)
+          Write-Host "d2gl source: MarcosT96/d2gl $sha"
+          git -C d2gl-src log -3 --oneline
+
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+
+      - name: Install MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build glide3x.dll (v142, Release|Win32)
+        shell: pwsh
+        run: |
+          # SolutionDir is set explicitly because the project writes to
+          # $(SolutionDir)bin\$(Configuration)\ and we build the .vcxproj directly.
+          $sol = (Resolve-Path d2gl-src).Path + "\"
+          msbuild d2gl-src/glide3x/glide3x.vcxproj /m /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=v142 "/p:SolutionDir=$sol"
+          if ($LASTEXITCODE -ne 0) { throw "msbuild failed" }
+
+      - name: Stage, hash and check glide3x.dll
+        shell: pwsh
+        run: |
+          $dll = Get-ChildItem -Recurse -Filter glide3x.dll d2gl-src/bin | Select-Object -First 1
+          if (-not $dll) { throw "glide3x.dll not found under d2gl-src/bin" }
+          Copy-Item $dll.FullName "glide3x.dll" -Force
+          $hash = (Get-FileHash "glide3x.dll" -Algorithm SHA256).Hash.ToLower()
+          $size = (Get-Item "glide3x.dll").Length
+          Write-Host "glide3x.dll sha256=$hash size=$size"
+
+          # Toolchain guard: must be a v142 linker output (14.20-14.29).
+          $bytes = [IO.File]::ReadAllBytes("glide3x.dll")
+          $pe = [BitConverter]::ToInt32($bytes, 0x3C)
+          $major = $bytes[$pe + 24 + 2]
+          $minor = $bytes[$pe + 24 + 3]
+          Write-Host "glide3x.dll linker=$major.$minor"
+          if ($major -ne 14 -or $minor -lt 20 -or $minor -gt 29) { throw "wrong toolset: linker $major.$minor is not v142 (expected 14.2x)" }
+
+          # Machine must be x86: the 1.14d client is a 32-bit process.
+          $machine = [BitConverter]::ToUInt16($bytes, $pe + 4)
+          Write-Host ("machine=0x{0:X4}" -f $machine)
+          if ($machine -ne 0x014C) { throw "not an x86 DLL" }
+
+          # The two exports other mods resolve by name: SGD2FreeRes detects D2GL
+          # through _setCustomScreenSize@8, d2gl.h queries _d2glConfigQueryImpl@4.
+          $exports = (dumpbin /exports glide3x.dll) -join "`n"
+          foreach ($name in @("_setCustomScreenSize@8", "_d2glConfigQueryImpl@4")) {
+            if ($exports -notmatch [regex]::Escape($name)) { throw "missing export $name" }
+            Write-Host "export present: $name"
+          }
+
+          Write-Host "--- dependents"
+          dumpbin /dependents glide3x.dll
+
+      - name: Upload glide3x.dll
+        uses: actions/upload-artifact@v4
+        with:
+          name: d2gl_glide3x
+          path: glide3x.dll
+          retention-days: 30
