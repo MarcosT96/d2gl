@@ -23,5 +23,12 @@ Changes (branch `latam/1.14d`):
    `d2::getLangIdEffective()` (`d2/funcs.cpp`), used by `helpers.cpp` and
    `modules/hd_text.cpp`.
 
+4. `d2gl/src/helpers.cpp` — two small functions, `__std_find_trivial_4` and
+   `__std_count_trivial_1`, compiled only for `_MSC_VER < 1930`. The vendored
+   `glslang.lib` was built with MSVC 14.38 and its STL calls them; the v142
+   (14.2x) import library does not export them, so the link fails (LNK2001).
+   Signatures were read from the call sites inside `glslang.lib` (`__stdcall`,
+   three 4-byte arguments, result in EAX).
+
 Build: Visual Studio 2019 toolset (`PlatformToolset=v142`), `Release|Win32`,
 project `glide3x`. The upstream release was built with v143 (linker 14.38).

@@ -479,3 +479,36 @@ void loadDlls(const std::string& dlls, bool late)
 }
 
 }
+
+// LATAM: build with the v142 toolset (see LATAM.md).
+//
+// The vendored glslang.lib was built with MSVC 14.38 (VS 2022), whose STL calls
+// two helpers that the v142 (14.2x) import library does not export, so linking
+// with v142 fails with LNK2001 on these symbols. They are pure range scans; the
+// signatures were read from the call sites inside glslang.lib: three 4-byte
+// stack arguments, __stdcall (`@12`), result in EAX, i.e.
+//   const void* __std_find_trivial_4(const void* first, const void* last, uint32_t value)
+//   size_t      __std_count_trivial_1(const void* first, const void* last, uint8_t value)
+// Compiled out for v143 and newer, which provide the real ones.
+#if defined(_MSC_VER) && _MSC_VER < 1930
+extern "C" const void* __stdcall __std_find_trivial_4(const void* first, const void* last, uint32_t value)
+{
+	const uint32_t* p = static_cast<const uint32_t*>(first);
+	const uint32_t* end = static_cast<const uint32_t*>(last);
+	for (; p != end; ++p) {
+		if (*p == value)
+			return p;
+	}
+	return last;
+}
+
+extern "C" size_t __stdcall __std_count_trivial_1(const void* first, const void* last, uint8_t value)
+{
+	const uint8_t* p = static_cast<const uint8_t*>(first);
+	const uint8_t* end = static_cast<const uint8_t*>(last);
+	size_t count = 0;
+	for (; p != end; ++p)
+		count += (*p == value);
+	return count;
+}
+#endif
