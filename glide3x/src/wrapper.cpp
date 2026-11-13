@@ -381,8 +381,14 @@ GrContext_t Wrapper::grSstWinOpen(FxU32 hwnd, GrScreenResolution_t screen_resolu
 	}
 	trace_log("Game requested screen size: %d x %d", App.game.size.x, App.game.size.y);
 
+	// LATAM: with -w the window is the game's size, not the ini's.
+	if (App.window.follow_game && !App.window.fullscreen)
+		App.window.size = App.game.size;
+
 	if (App.hwnd) {
 		if (old_size != App.game.size) {
+			if (App.window.follow_game && !App.window.fullscreen)
+				win32::setWindowRect();
 			win32::setWindowMetrics();
 			win32::windowResize();
 		}

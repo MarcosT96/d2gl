@@ -56,13 +56,9 @@ void dllAttach(HMODULE hmodule)
 	if ((App.api == Api::Glide && !flag_3dfx) || (App.api == Api::DDraw && flag_3dfx))
 		return;
 
-	if (command_line.find("-w ") != std::string::npos || command_line.find("-w") == command_line.length() - 2) {
-		if (App.api == Api::Glide && flag_3dfx) {
-			MessageBoxA(NULL, "D2GL Glide wrapper is not compatible with \"-w\" flag.\nRemove \"-w\" flag and run game again.", "Unsupported argument detected!", MB_OK | MB_ICONWARNING);
-			exit(1);
-		}
+	bool flag_w = command_line.find("-w ") != std::string::npos || command_line.find("-w") == command_line.length() - 2;
+	if (flag_w && App.api != Api::Glide)
 		return;
-	}
 
 	App.log = command_line.find("-log") != std::string::npos;
 	App.direct = command_line.find("-direct") != std::string::npos;
@@ -98,6 +94,15 @@ void dllAttach(HMODULE hmodule)
 	App.hmodule = hmodule;
 
 	option::loadIni();
+
+	// LATAM: "-w" with the Glide wrapper used to show a dialog and exit. Treat it
+	// the way D2DX does: a windowed session whose window follows the game size.
+	// Set after loadIni() so the player's own "fullscreen" in the ini is untouched.
+	if (flag_w) {
+		App.window.follow_game = true;
+		App.window.fullscreen = false;
+		trace_log("-w: windowed, window follows the game size.");
+	}
 	helpers::loadDlls(App.dlls_early);
 
 	d2::initHooks();

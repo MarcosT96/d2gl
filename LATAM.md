@@ -46,3 +46,13 @@ Changes (branch `latam/1.14d`):
 
 Build: Visual Studio 2019 toolset (`PlatformToolset=v142`), `Release|Win32`,
 project `glide3x`. The upstream release was built with v143 (linker 14.38).
+
+## `-w` (windowed), like D2DX
+
+Upstream showed "D2GL Glide wrapper is not compatible with -w" and exited. Now
+`-w` starts a windowed session whose window follows the game size: 800x600 in the
+menus, the in-game resolution (1344x700 / 1068x600) once in a game. The flag is
+runtime-only (`App.window.follow_game`), applied after `loadIni()`, so the
+player's `fullscreen` setting in the ini is never rewritten. Files: `app.cpp`,
+`app.h`, `glide3x/src/wrapper.cpp` (`grSstWinOpen` resizes the OS window with
+`setWindowRect()` on every mode change).

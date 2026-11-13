@@ -73,6 +73,9 @@ struct D2GLApp {
 		bool centered = true;
 		bool dark_mode = true;
 		bool resized = false;
+		// LATAM: "-w" on the command line. Runtime only, never written to the ini:
+		// the window follows the game size (800x600 menus, 1344x700 in game), like D2DX.
+		bool follow_game = false;
 	} window;
 
 	struct {
