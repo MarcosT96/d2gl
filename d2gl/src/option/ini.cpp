@@ -94,9 +94,12 @@ bool saveValue(LPCSTR section, LPCSTR key, LPCSTR value_string)
 	// second client starting at the same time has nothing to race against.
 	char current[512] = { 0 };
 	const DWORD length = GetPrivateProfileStringA(section, key, "\x01", current, sizeof(current), App.ini_file.c_str());
-	if (length > 0 && current[0] != '\x01' && strcmp(current, value_string) == 0)
+	if (length > 0 && current[0] != '\x01' && strcmp(current, value_string) == 0) {
+		trace_log("ini: %s/%s unchanged, not written.", section, key);
 		return true;
+	}
 
+	trace_log("ini: %s/%s written ('%s' -> '%s').", section, key, current, value_string);
 	return WritePrivateProfileStringA(section, key, value_string, App.ini_file.c_str()) > 0;
 }
 
@@ -143,8 +146,11 @@ static bool iniFileHasContent(const std::string& path, const char* content, size
 
 static void writeIniAtomically(const std::string& path, const char* content, size_t length)
 {
-	if (iniFileHasContent(path, content, length))
+	if (iniFileHasContent(path, content, length)) {
+		trace_log("ini: %s identical (%d bytes), not written.", path.c_str(), (int)length);
 		return;
+	}
+	trace_log("ini: %s differs, writing %d bytes atomically.", path.c_str(), (int)length);
 
 	const std::string tmp = path + ".tmp";
 	{
