@@ -150,7 +150,23 @@ static void writeIniAtomically(const std::string& path, const char* content, siz
 		trace_log("ini: %s identical (%d bytes), not written.", path.c_str(), (int)length);
 		return;
 	}
-	trace_log("ini: %s differs, writing %d bytes atomically.", path.c_str(), (int)length);
+	{
+		// Diagnostic: where does the generated text first differ from the file?
+		std::ifstream in(path, std::ios::binary);
+		std::string existing((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+		size_t i = 0;
+		while (i < existing.size() && i < length && existing[i] == content[i])
+			i++;
+		auto clip = [](const std::string& str, size_t at) {
+			std::string out = str.substr(at, 40);
+			for (auto& c : out)
+				if (c == '\n' || c == '\r')
+					c = '|';
+			return out;
+		};
+		trace_log("ini: %s differs (file %d bytes, generated %d), first difference at byte %d: file '%s' vs generated '%s'.",
+			path.c_str(), (int)existing.size(), (int)length, (int)i, clip(existing, i).c_str(), clip(std::string(content, length), i).c_str());
+	}
 
 	const std::string tmp = path + ".tmp";
 	{
@@ -161,8 +177,11 @@ static void writeIniAtomically(const std::string& path, const char* content, siz
 		if (!out.good())
 			return;
 	}
-	if (!MoveFileExA(tmp.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING))
+	if (!MoveFileExA(tmp.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING)) {
+		trace_log("ini: MoveFileEx failed, error %lu; the ini was left as it was.", GetLastError());
 		DeleteFileA(tmp.c_str());
+	} else
+		trace_log("ini: replaced.");
 }
 
 void saveIni()
