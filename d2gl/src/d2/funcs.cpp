@@ -17,6 +17,7 @@
 */
 
 #include "pch.h"
+#include <cctype>
 #include "funcs.h"
 #include "common.h"
 #include "helpers.h"
@@ -59,6 +60,40 @@ bool isEscMenuOpen()
 bool isLangCJK(uint32_t lang_id)
 {
 	return lang_id == LANG_JPN || lang_id == LANG_KOR || lang_id == LANG_CHI;
+}
+
+// LATAM: the language HD text assumes. The game reports the language of the
+// player's Windows, but our payload ships the Spanish menu art under every
+// language slot, so the tables must follow the art, not the OS. `lang_override`
+// (ini, [Other]) forces it; empty keeps upstream behaviour.
+uint32_t getLangIdEffective()
+{
+	// Not cached: dllAttach() asks for the language (to log it) before loadIni()
+	// has read `lang_override`, and that first answer must not stick.
+	static const struct { const char* code; uint32_t id; } codes[] = {
+		{ "eng", LANG_ENG }, { "esp", LANG_ESP }, { "deu", LANG_DEU }, { "fra", LANG_FRA },
+		{ "por", LANG_POR }, { "ita", LANG_ITA }, { "pol", LANG_POL }, { "rus", LANG_RUS },
+	};
+	if (App.lang_override.empty())
+		return getLangId();
+
+	std::string code = App.lang_override;
+	std::transform(code.begin(), code.end(), code.begin(), [](unsigned char c) { return (char)std::tolower(c); });
+	static std::string logged;
+	for (const auto& c : codes) {
+		if (code == c.code) {
+			if (logged != code) {
+				trace_log("Language override: %s.", c.code);
+				logged = code;
+			}
+			return c.id;
+		}
+	}
+	if (logged != code) {
+		error_log("Unknown lang_override '%s' (use eng, esp, deu, fra, por, ita, pol or rus); using the game's language.", code.c_str());
+		logged = code;
+	}
+	return getLangId();
 }
 
 UnitAny* getPlayerUnit()

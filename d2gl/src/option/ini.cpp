@@ -18,6 +18,7 @@
 
 #include "pch.h"
 #include "ini.h"
+#include <cstring>
 #include "helpers.h"
 
 namespace d2gl::option {
@@ -116,11 +117,43 @@ bool saveString(LPCSTR section, LPCSTR key, const std::string& val)
 	return saveValue(section, key, val.c_str());
 }
 
+// LATAM: d2gl rewrote its ini with a truncating ofstream on EVERY start, so a
+// second client starting while the first one parses the file could read an
+// empty or half-written ini. Write only when the content changed, and replace
+// the file atomically (tmp + MoveFileEx) when it did.
+static bool iniFileHasContent(const std::string& path, const char* content, size_t length)
+{
+	std::ifstream in(path, std::ios::binary | std::ios::ate);
+	if (!in.is_open() || (size_t)in.tellg() != length)
+		return false;
+	in.seekg(0);
+	std::string existing(length, '\0');
+	in.read(existing.data(), (std::streamsize)length);
+	return in.good() && memcmp(existing.data(), content, length) == 0;
+}
+
+static void writeIniAtomically(const std::string& path, const char* content, size_t length)
+{
+	if (iniFileHasContent(path, content, length))
+		return;
+
+	const std::string tmp = path + ".tmp";
+	{
+		std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
+		if (!out.is_open())
+			return;
+		out.write(content, (std::streamsize)length);
+		if (!out.good())
+			return;
+	}
+	if (!MoveFileExA(tmp.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING))
+		DeleteFileA(tmp.c_str());
+}
+
 void saveIni()
 {
 	char buf[3400] = { 0 };
-	std::ofstream out_file;
-	out_file.open(App.ini_file);
+	std::string content;
 
 	static const char* screen_setting =
 		"; ==== D2GL Configs ====\n\n"
@@ -172,7 +205,7 @@ void saveIni()
 		App.foreground_fps.range.value,
 		boolString(App.background_fps.active),
 		App.background_fps.range.value);
-	out_file << buf;
+	content += buf;
 
 	static const char* graphic_setting =
 		"[Graphic]\n\n"
@@ -213,7 +246,7 @@ void saveIni()
 		App.bloom.gamma.value,
 		boolString(App.viewport.stretched.x),
 		boolString(App.viewport.stretched.y));
-	out_file << buf;
+	content += buf;
 
 	static const char* feature_setting =
 		"[Feature]\n\n"
@@ -259,7 +292,7 @@ void saveIni()
 		boolString(App.show_item_quantity),
 		boolString(App.show_monster_res),
 		boolString(App.show_fps));
-	out_file << buf;
+	content += buf;
 
 	static const char* other_setting =
 		"[Other]\n\n"
@@ -271,6 +304,9 @@ void saveIni()
 		"; Frame Latency (how many frames cpu generate before rendering).\n"
 		"; Set 1-5 (increasing this value notice less frame stutter but introduces more input lag).\n"
 		"frame_latency=%d\n\n"
+		"; Language the HD text tables assume: eng, esp, deu, fra, por, ita, pol, rus.\n"
+		"; Empty = the language the game reports. LATAM sets esp: the menu art is Spanish.\n"
+		"lang_override=%s\n\n"
 		"; Comma-delimited DLLs to load (early: right after attached).\n"
 		"load_dlls_early=%s\n\n"
 		"; Comma-delimited DLLs to load (late: right after window created).\n"
@@ -281,11 +317,11 @@ void saveIni()
 		App.gl_ver.y,
 		boolString(App.use_compute_shader),
 		App.frame_latency,
+		App.lang_override.c_str(),
 		App.dlls_early.c_str(),
 		App.dlls_late.c_str());
-	out_file << buf;
-
-	out_file.close();
+	content += buf;
+	writeIniAtomically(App.ini_file, content.c_str(), content.size());
 }
 
 void loadIni()
@@ -368,6 +404,7 @@ void loadIni()
 		App.use_compute_shader = getBool("Other", "use_compute_shader", App.use_compute_shader);
 		App.frame_latency = getInt("Other", "frame_latency", App.frame_latency, 1, 5);
 
+		App.lang_override = getString("Other", "lang_override", App.lang_override);
 		App.dlls_early = getString("Other", "load_dlls_early", App.dlls_early);
 		App.dlls_late = getString("Other", "load_dlls_late", App.dlls_late);
 	}

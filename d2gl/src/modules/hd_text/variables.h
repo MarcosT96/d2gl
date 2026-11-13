@@ -714,9 +714,9 @@ inline std::vector<D2TextInfo> g_death_texts = {
 };
 inline const std::map<uint32_t, std::vector<D2TextInfo>> g_death_text_others = {
 	{ LANG_ESP, {
-		{ 0, { 218, 36 }, L"Sie sind gestorben" }, // You have died
-		{ 2, {   7, 36 }, L"Presiona ESCAPE para Continuar" }, // Press ESC to continue
-		{ 1, {  47, 36 }, L"Perdiste Oro" }, // You lost gold
+		{ 0, { 218, 36 }, L"Has muerto" }, // You have died
+		{ 2, {   7, 36 }, L"Pulsa ESC para continuar" }, // Press ESC to continue
+		{ 1, {  47, 36 }, L"Has perdido oro" }, // You lost gold
 	} },
 	{ LANG_DEU, {
 		{ 1, {  75, 36 }, L"You have died" }, // You have died

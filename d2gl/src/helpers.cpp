@@ -125,7 +125,7 @@ void trimString(std::string& str, const char* chars)
 std::string getLangString(bool path)
 {
 	if (path) {
-		switch (d2::getLangId()) {
+		switch (d2::getLangIdEffective()) {
 			case LANG_ESP: return "esp";
 			case LANG_DEU: return "deu";
 			case LANG_FRA: return "fra";
@@ -141,7 +141,7 @@ std::string getLangString(bool path)
 		return "eng";
 	}
 
-	switch (d2::getLangId()) {
+	switch (d2::getLangIdEffective()) {
 		case LANG_ESP: return "Spanish";
 		case LANG_DEU: return "German";
 		case LANG_FRA: return "French";

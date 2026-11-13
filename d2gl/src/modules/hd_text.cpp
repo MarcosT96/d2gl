@@ -28,7 +28,7 @@ namespace d2gl::modules {
 
 HDText::HDText()
 {
-	m_lang_id = d2::getLangId();
+	m_lang_id = d2::getLangIdEffective();
 	m_object_bg = std::make_unique<Object>();
 
 	std::string lang_file = helpers::getLangString(true);
@@ -1044,7 +1044,7 @@ void HDText::showSampleText()
 {
 	if (App.game.screen == GameScreen::InGame && App.hdt.show_sample && option::Menu::instance().isVisible()) {
 		auto id = (uint32_t)App.hdt.fonts.items[App.hdt.fonts.selected].value;
-		auto lang_id = d2::getLangId();
+		auto lang_id = d2::getLangIdEffective();
 		auto texts = g_sample_text.at((d2::isLangCJK(lang_id) || lang_id == LANG_RUS) ? lang_id : LANG_ENG);
 
 		const auto old_size = HDText::Instance().getTextSize();

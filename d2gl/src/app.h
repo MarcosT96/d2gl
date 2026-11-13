@@ -61,6 +61,7 @@ struct D2GLApp {
 	HDC hdc = 0;
 	std::string dlls_early = "";
 	std::string dlls_late = "";
+	std::string lang_override = "";
 
 	struct Window {
 		DWORD style = 0;

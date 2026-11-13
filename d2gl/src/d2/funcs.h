@@ -27,6 +27,7 @@ glm::ivec2 getCursorPos();
 bool isPerspective();
 bool isEscMenuOpen();
 bool isLangCJK(uint32_t lang_id);
+uint32_t getLangIdEffective();
 
 UnitAny* getPlayerUnit();
 UnitAny* findUnit(uint32_t type_id);
