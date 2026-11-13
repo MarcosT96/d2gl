@@ -245,7 +245,7 @@ void saveIni()
 		"[Graphic]\n\n"
 		"; Upscale shader.\n"
 		"; RetroArch's slang shader preset files (.slangp).\n"
-		"shader_preset=%d\n\n"
+		"shader_preset=%s\n\n"
 		"; Color grading (LUT) (only available in glide mode).\n"
 		"; Set one of 1-%d predefined luts. 0 = game default.\n"
 		"lut=%d\n\n"

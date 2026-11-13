@@ -12,6 +12,11 @@ Changes (branch `latam/1.14d`):
    `<file>.tmp` + `MoveFileExA(MOVEFILE_REPLACE_EXISTING)`. Upstream rewrote the
    file unconditionally, so a second client starting while the first one parsed it
    could read an empty or half-written ini.
+   Upstream's `saveIni()` printed `shader_preset` with `%d` while passing
+   `App.shader.preset.c_str()`, i.e. it wrote the string's *address* as a number
+   (`shader_preset=47428344`) on every start and relied on `upscaler.cpp` to
+   overwrite it a moment later with the real name; during that window another
+   client could read a bogus preset. Fixed to `%s`.
    `saveValue()` also skips the write when the stored value already matches
    (`WritePrivateProfileString` rewrites the whole file for an unchanged value,
    and `upscaler.cpp` saves `shader_preset` on every start).
